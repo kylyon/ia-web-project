@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconnaissance de Chiffres ONNX</title>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Dessinez un chiffre (0-9)</h1>
+        
+        <canvas id="canvas" width="280" height="280"></canvas>
+        
+        <div class="controls">
+            <button id="clear-btn">Effacer</button>
+            <button id="predict-btn">Deviner</button>
+        </div>
+
+        <div id="result">Chargement du modèle...</div>
+    </div>
+
+    <script src="script.js">
+        
+    </script>
+</body>
+</html>
