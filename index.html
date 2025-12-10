@@ -6,24 +6,38 @@
     <title>Reconnaissance de Chiffres ONNX</title>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer ></script>
 </head>
 <body>
 
-    <div class="container">
-        <h1>Dessinez un chiffre (0-9)</h1>
-        
-        <canvas id="canvas" width="280" height="280"></canvas>
-        
-        <div class="controls">
-            <button id="clear-btn">Effacer</button>
-            <button id="predict-btn">Deviner</button>
+    <div class="main-card">
+        <!-- Indicateur d'état du modèle -->
+        <div id="model-status" class="status" title="Statut du modèle"></div>
+
+        <h1>Digit Recognizer</h1>
+        <p class="subtitle">Dessinez un chiffre entre 0 et 9</p>
+
+        <div class="canvas-wrapper">
+            <canvas id="canvas" width="280" height="280"></canvas>
         </div>
 
-        <div id="result">Chargement du modèle...</div>
-    </div>
+        <div class="controls">
+            <button id="clear-btn" class="btn-secondary">
+                <!-- Icône Poubelle -->
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                Effacer
+            </button>
+            <button id="predict-btn" class="btn-primary">
+                <!-- Icône Éclair/Action -->
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Analyser
+            </button>
+        </div>
 
-    <script src="script.js">
-        
-    </script>
+        <div class="result-box">
+            <span class="result-label" id="result-label">En attente</span>
+            <span class="result-value" id="result-value">-</span>
+        </div>
+    </div>
 </body>
 </html>

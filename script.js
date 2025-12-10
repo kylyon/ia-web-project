@@ -1,35 +1,52 @@
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/";
 
-// --- 1. Variables Globales ---
+// --- Variables Globales ---
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const resultDiv = document.getElementById('result');
-let session; // Session ONNX
+const resultValue = document.getElementById('result-value');
+const resultLabel = document.getElementById('result-label');
+const modelStatus = document.getElementById('model-status');
+
+let session;
 let isDrawing = false;
 
-// --- 2. Initialisation du Canvas ---
-ctx.fillStyle = "white";
-ctx.fillRect(0, 0, canvas.width, canvas.height);
-ctx.strokeStyle = "black"; // Encre blanche
-ctx.lineWidth = 15;        // Épaisseur du trait
-ctx.lineCap = "round";     // Bords arrondis
+// --- Initialisation du Canvas ---
+function initCanvas() {
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 20;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+}
+initCanvas();
 
-// --- 3. Gestion de la souris pour dessiner ---
-canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
-canvas.addEventListener('mousemove', draw);
-canvas.addEventListener('mouseup', () => isDrawing = false);
-canvas.addEventListener('mouseout', () => isDrawing = false);
+// --- Gestion des événements de dessin ---
+const startDraw = (e) => { isDrawing = true; draw(e); };
+const stopDraw = () => { isDrawing = false; ctx.beginPath(); };
+const drawing = (e) => draw(e);
 
-// Support tactile basique
-canvas.addEventListener('touchstart', (e) => { isDrawing = true; draw(e.touches[0]); e.preventDefault(); });
-canvas.addEventListener('touchmove', (e) => { draw(e.touches[0]); e.preventDefault(); });
-canvas.addEventListener('touchend', () => isDrawing = false);
+// Souris
+canvas.addEventListener('mousedown', startDraw);
+canvas.addEventListener('mousemove', drawing);
+canvas.addEventListener('mouseup', stopDraw);
+canvas.addEventListener('mouseout', stopDraw);
+
+// Tactile (Mobile)
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e.touches[0]); });
+canvas.addEventListener('touchmove', (e) => { e.preventDefault(); drawing(e.touches[0]); });
+canvas.addEventListener('touchend', stopDraw);
 
 function draw(e) {
     if (!isDrawing) return;
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.pageX) - rect.left;
-    const y = (e.clientY || e.pageY) - rect.top;
+    
+    // Position relative à la zone de dessin
+    const clientX = e.clientX || e.pageX;
+    const clientY = e.clientY || e.pageY;
+    
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
 
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -37,96 +54,103 @@ function draw(e) {
     ctx.moveTo(x, y);
 }
 
-// Réinitialiser le tracé (nécessaire à chaque nouveau trait)
-canvas.addEventListener('mousedown', () => ctx.beginPath());
-canvas.addEventListener('touchstart', () => ctx.beginPath());
-
-// --- 4. Bouton Effacer ---
+// --- Bouton Effacer ---
 document.getElementById('clear-btn').addEventListener('click', () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    resultDiv.innerText = "Dessinez un chiffre...";
+    resultValue.innerText = "-";
+    resultLabel.innerText = "En attente";
+    resultValue.style.color = "var(--text-main)";
 });
 
-// --- 5. Chargement du Modèle ONNX ---
+// --- Chargement du Modèle ONNX ---
 async function loadModel() {
     try {
-        // Création de la session d'inférence
-        // Assurez-vous d'avoir 'model.onnx' dans le même dossier
+        resultLabel.innerText = "Chargement...";
+        
+        // IMPORTANT: Le chemin './model.onnx' suppose que le modèle 
+        // est dans le même dossier que le fichier HTML
         session = await ort.InferenceSession.create('./model.onnx');
-        resultDiv.innerText = "Modèle chargé ! Dessinez.";
-        resultDiv.classList.remove('loading');
+        
+        // Mise à jour de l'UI
+        modelStatus.classList.add('ready'); // Point vert
+        resultLabel.innerText = "Prêt";
+        console.log("Modèle chargé avec succès");
+        
     } catch (e) {
         console.error(e);
-        resultDiv.innerHTML = `<span class="error">Erreur: Impossible de charger 'model.onnx'.<br>Vérifiez que le fichier est présent et que vous utilisez un serveur local.</span>`;
+        resultLabel.innerText = "Erreur Modèle";
+        resultValue.innerText = "!";
+        resultValue.style.color = "var(--danger)";
+        alert("Erreur: Impossible de charger 'model.onnx'. Assurez-vous d'utiliser un serveur local (http://localhost...).");
     }
 }
 
+// Démarrer le chargement
 loadModel();
 
-// --- 6. Logique de Prédiction ---
+// --- Logique de Prédiction ---
 document.getElementById('predict-btn').addEventListener('click', async () => {
     if (!session) {
-        alert("Le modèle n'est pas encore chargé !");
+        alert("Le modèle n'est pas encore chargé.");
         return;
     }
 
-    // A. Prétraitement de l'image
-    // On crée un petit canvas temporaire pour redimensionner l'image à 28x28
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 28;
-    tempCanvas.height = 28;
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    // On dessine l'image de 280x280 vers 28x28
-    tempCtx.drawImage(canvas, 0, 0, 28, 28);
-    
-    const imageData = tempCtx.getImageData(0, 0, 28, 28);
-    const data = imageData.data; // Tableau RGBA [r, g, b, a, r, g, b, a...]
-    
-    // B. Conversion en Tensor Float32 [1, 1, 28, 28]
-    // On ne garde que le canal Rouge (car c'est en noir et blanc) et on normalise entre 0 et 1
-    const float32Data = new Float32Array(28 * 28);
-    for (let i = 0; i < 28 * 28; i++) {
-        // data[i*4] est le canal Rouge. 
-        // On divise par 255.0 pour avoir des valeurs entre 0.0 et 1.0
-        float32Data[i] = ((data[i * 4] / 255.0) - 1) * - 1;
-    }
-
-    // Création du tenseur ONNX
-    const inputTensor = new ort.Tensor('float32', float32Data, [1, 1, 28, 28]);
-
-    // C. Inférence
     try {
-        // On récupère le nom de l'entrée du modèle dynamiquement
+        resultLabel.innerText = "Calcul...";
+
+        // 1. Redimensionnement (280x280 -> 28x28)
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 28;
+        tempCanvas.height = 28;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(canvas, 0, 0, 28, 28);
+        
+        // 2. Extraction des données
+        const imgData = tempCtx.getImageData(0, 0, 28, 28);
+        const float32Data = new Float32Array(28 * 28);
+        
+        for (let i = 0; i < 28 * 28; i++) {
+            // Normalisation : on prend le canal rouge, divisé par 255.0
+            float32Data[i] = ((imgData.data[i * 4] / 255.0) - 1) * -1;
+        }
+
+        // 3. Création du tenseur [1, 1, 28, 28]
+        const inputTensor = new ort.Tensor('float32', float32Data, [1, 1, 28, 28]);
+
+        // 4. Inférence (Run)
         const inputName = session.inputNames[0];
+        const outputName = session.outputNames[0];
+        
         const feeds = {};
         feeds[inputName] = inputTensor;
-
-        // Exécution
-        const results = await session.run(feeds);
         
-        // On récupère la sortie (généralement nommée 'Output3', 'Plus214_Output_0', etc.)
-        const outputName = session.outputNames[0];
-        const outputTensor = results[outputName];
-        const outputData = outputTensor.data;
+        const results = await session.run(feeds);
+        const output = results[outputName].data;
 
-        console.log(outputData)
-
-        // D. Trouver l'index de la valeur maximale (Argmax)
+        // 5. Recherche de l'index Max (Argmax)
         let maxProb = -Infinity;
         let predictedDigit = -1;
-
-        for (let i = 0; i < outputData.length; i++) {
-            if (outputData[i] > maxProb) {
-                maxProb = outputData[i];
+        for (let i = 0; i < output.length; i++) {
+            if (output[i] > maxProb) {
+                maxProb = output[i];
                 predictedDigit = i;
             }
         }
 
-        resultDiv.innerText = `Prédiction : ${predictedDigit}`;
+        // 6. Affichage du résultat
+        resultLabel.innerText = "Prédiction";
+        resultValue.innerText = predictedDigit;
+        resultValue.style.color = "var(--success)"; // Vert
         
+        // Animation simple
+        resultValue.animate([
+            { transform: 'scale(0.8)', opacity: 0.5 },
+            { transform: 'scale(1.2)', opacity: 1 },
+            { transform: 'scale(1)', opacity: 1 }
+        ], { duration: 300, easing: 'ease-out' });
+
     } catch (e) {
-        console.error(e);
-        resultDiv.innerText = "Erreur lors de la prédiction.";
+        console.error("Erreur durant la prédiction:", e);
+        resultLabel.innerText = "Erreur";
     }
 });
