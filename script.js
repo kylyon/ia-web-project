@@ -1,11 +1,11 @@
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/";
-
 // --- Variables Globales ---
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const resultValue = document.getElementById('result-value');
 const resultLabel = document.getElementById('result-label');
 const modelStatus = document.getElementById('model-status');
+const modelSelect = document.getElementById('model-select');
+var selectedModel = "my_model"
 
 let session;
 let isDrawing = false;
@@ -62,14 +62,21 @@ document.getElementById('clear-btn').addEventListener('click', () => {
     resultValue.style.color = "var(--text-main)";
 });
 
+// Gestion event choix modele
+modelSelect.addEventListener("change", (e) => {selectedModel = e.currentTarget.value; loadModel()})
+
 // --- Chargement du Modèle ONNX ---
 async function loadModel() {
+    modelStatus.classList.remove('ready');
+    resultValue.innerText = "-";
+    resultLabel.innerText = "En attente";
+    resultValue.style.color = "var(--text-main)";
     try {
         resultLabel.innerText = "Chargement...";
         
         // IMPORTANT: Le chemin './model.onnx' suppose que le modèle 
         // est dans le même dossier que le fichier HTML
-        session = await ort.InferenceSession.create('./model.onnx');
+        session = await ort.InferenceSession.create('./'+ selectedModel + '.onnx');
         
         // Mise à jour de l'UI
         modelStatus.classList.add('ready'); // Point vert

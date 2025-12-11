@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reconnaissance de Chiffres ONNX</title>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js" defer ></script>
+    <link rel="stylesheet" href="./style.css">
+    <script src="./script.js" defer ></script>
 </head>
 <body>
 
@@ -33,6 +33,11 @@
                 Analyser
             </button>
         </div>
+
+        <select id="model-select">
+            <option value="my_model">Modèle Custom</option>
+            <option value="custom_resnet_model">Modèle ResNet ( Transfer Learning )</option>
+        </select>
 
         <div class="result-box">
             <span class="result-label" id="result-label">En attente</span>
